@@ -1,0 +1,84 @@
+# ===================================================
+# Dependencies (Root, Client, Server)
+# ===================================================
+node_modules/
+*/node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# ===================================================
+# Environment Variables & Sensitive Credentials
+# ===================================================
+# Never commit .env files containing private keys, Atlas passwords, or secrets!
+.env
+.env.*
+.env*.local
+*.env
+**/.env
+**/.env.*
+!**/.env.example
+!.env.example
+
+# ===================================================
+# Production Builds & Bundler Output
+# ===================================================
+dist/
+dist-ssr/
+build/
+client/dist/
+client/dist-ssr/
+client/build/
+**/dist/
+**/build/
+.vite/
+client/.vite/
+**/vite/
+
+# ===================================================
+# Logs & Diagnostic Dumps
+# ===================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ===================================================
+# Runtime Data & Temporary Files
+# ===================================================
+pids
+*.pid
+*.seed
+*.pid.lock
+.turbo/
+.cache/
+*.local
+
+# ===================================================
+# OS & File System Artifacts
+# ===================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ===================================================
+# IDE & Editor Directories
+# ===================================================
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.sublime-project
+*.sublime-workspace

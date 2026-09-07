@@ -1,0 +1,24 @@
+{
+  "name": "rozy-mehtab-portfolio-booking-engine",
+  "version": "1.0.0",
+  "description": "Production MERN Career Guidance & Booking Engine for Rozy Mehtab",
+  "scripts": {
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"magenta,cyan\" \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "start:server": "npm --prefix server start"
+  },
+  "keywords": [
+    "mern",
+    "career-guidance",
+    "booking-engine",
+    "google-calendar",
+    "punjabi-university"
+  ],
+  "author": "Antigravity",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
