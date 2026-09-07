@@ -218,8 +218,8 @@ exports.createBooking = async (req, res) => {
     booking.confirmationToken = approveToken;
     await booking.save();
 
-    const baseUrl = process.env.CLIENT_URL || `http://localhost:${process.env.PORT || 5000}`;
-    const serverBaseUrl = `http://localhost:${process.env.PORT || 5000}`;
+    const serverBaseUrl = process.env.SERVER_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const baseUrl = process.env.CLIENT_URL || serverBaseUrl;
     
     // Construct single-use action URLs
     const approveUrl = `${serverBaseUrl}/api/bookings/approve?token=${approveToken}`;

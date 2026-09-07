@@ -3,11 +3,16 @@
   "version": "1.0.0",
   "description": "Production MERN Career Guidance & Booking Engine for Rozy Mehtab",
   "scripts": {
+    "build": "npm --prefix client install && npm --prefix client run build && npm --prefix server install",
+    "build:client": "npm --prefix client run build",
+    "start": "node server/server.js",
+    "start:server": "npm --prefix server start",
     "dev": "concurrently -n \"SERVER,CLIENT\" -c \"magenta,cyan\" \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
     "dev:server": "npm --prefix server run dev",
-    "dev:client": "npm --prefix client run dev",
-    "build:client": "npm --prefix client run build",
-    "start:server": "npm --prefix server start"
+    "dev:client": "npm --prefix client run dev"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "mern",
