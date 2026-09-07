@@ -52,10 +52,12 @@ initCleanupCron();
 // ===================================================
 // 2. Security Headers & CORS Configuration
 // ===================================================
-app.use(helmet({
-  contentSecurityPolicy: false, // Allows React assets & Google Fonts to load smoothly
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Allows React assets & Google Fonts to load smoothly
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
 
 // Dynamic CORS configuration (supporting multiple origins, Render preview URLs, & localhost)
 const parseAllowedOrigins = () => {
@@ -76,34 +78,36 @@ const parseAllowedOrigins = () => {
 
 const allowedOrigins = parseAllowedOrigins();
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow server-to-server, curl, Postman, or health-check probes with no origin
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow server-to-server, curl, Postman, or health-check probes with no origin
+      if (!origin) return callback(null, true);
 
-    // In non-production, allow localhost and loopbacks freely
-    if (process.env.NODE_ENV !== 'production') {
-      if (origin.includes('localhost') || origin.includes('127.0.0.1') || allowedOrigins.includes(origin)) {
+      // In non-production, allow localhost and loopbacks freely
+      if (process.env.NODE_ENV !== 'production') {
+        if (origin.includes('localhost') || origin.includes('127.0.0.1') || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+      }
+
+      // Match exact origin or wildcard
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
         return callback(null, true);
       }
-    }
 
-    // Match exact origin or wildcard
-    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-      return callback(null, true);
-    }
+      // Support onrender.com subdomains if CLIENT_URL targets Render
+      if (origin.endsWith('.onrender.com')) {
+        return callback(null, true);
+      }
 
-    // Support onrender.com subdomains if CLIENT_URL targets Render
-    if (origin.endsWith('.onrender.com') && process.env.CLIENT_URL?.includes('.onrender.com')) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`Blocked by CORS policy for origin: ${origin}`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+      return callback(new Error(`Blocked by CORS policy for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  })
+);
 
 // Body Parsing & Input Sanitization
 app.use(express.json({ limit: '50kb' }));
@@ -111,27 +115,8 @@ app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 app.use(mongoSanitizeMiddleware);
 
 // ===================================================
-// 3. Health Check Routes (Dedicated Root & /api/health)
+// 3. API Endpoints & Dedicated API Health Route
 // ===================================================
-const clientDistPath = path.join(__dirname, '../client/dist');
-
-// Root Health Check Route
-app.get('/', (req, res, next) => {
-  const indexPath = path.join(clientDistPath, 'index.html');
-  // If static React build exists and client accepts HTML, serve the frontend
-  if (fs.existsSync(indexPath) && req.accepts('html')) {
-    return res.sendFile(indexPath);
-  }
-
-  res.status(200).json({
-    status: 'ok',
-    message: 'API Server is live',
-    service: 'Rozy Mehtab Guidance & Booking Engine API',
-    environment: process.env.NODE_ENV || 'development',
-    uptimeSeconds: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString()
-  });
-});
 
 // Dedicated API Health Check Route
 app.get('/api/health', (req, res) => {
@@ -144,42 +129,44 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ===================================================
-// 4. API Endpoints
-// ===================================================
+// API Routes
 app.use('/api', bookingRoutes);
 
-// ===================================================
-// 5. Static Assets & Client SPA Catch-All
-// ===================================================
-app.use(express.static(clientDistPath));
-
-// SPA Catch-All: Serve index.html for any client route not handled by /api
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) {
-    return next();
-  }
-  const indexPath = path.join(clientDistPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
-  }
-  next();
-});
-
-// ===================================================
-// 6. 404 & Global Error Handling
-// ===================================================
 // Unhandled API Route 404
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'Requested API endpoint not found.' });
 });
 
-// General 404 fallback (when client build is not being served)
-app.use((req, res) => {
-  res.status(404).json({ error: 'Resource not found.' });
+// ===================================================
+// 4. Static Assets & Client SPA Fallback
+// ===================================================
+const clientDistPath = path.join(__dirname, '../client/dist');
+
+// Serve static frontend build files
+app.use(express.static(clientDistPath));
+
+// Catch-All SPA Handler for React
+app.get('*', (req, res) => {
+  const indexPath = path.join(clientDistPath, 'index.html');
+
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+
+  // Fallback API message only if React dist build is missing
+  res.status(200).json({
+    status: 'ok',
+    message: 'API Server is live (Client build not found)',
+    service: 'Rozy Mehtab Guidance & Booking Engine API',
+    environment: process.env.NODE_ENV || 'development',
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
 });
 
-// Global Error Handler
+// ===================================================
+// 5. Global Error Handling
+// ===================================================
 app.use((err, req, res, next) => {
   console.error('Unhandled Server Error:', err);
   res.status(500).json({
@@ -189,7 +176,7 @@ app.use((err, req, res, next) => {
 });
 
 // ===================================================
-// 7. Server Listener (Binds to 0.0.0.0 and dynamic PORT)
+// 6. Server Listener
 // ===================================================
 app.listen(PORT, HOST, () => {
   const isServingClient = fs.existsSync(path.join(clientDistPath, 'index.html'));
