@@ -74,9 +74,11 @@ app.use((err, req, res, next) => {
     message: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
+app.get("/", (req, res) => {
+  res.status(200).send("API is running!");
+});
 
-app.listen(PORT, () => {
-  console.log(`🚀 Career Guidance API server active on http://localhost:${PORT}`);
-  console.log(`🔒 Student PII Protection & Single-Use HMAC-SHA256 tokens enabled.`);
-  console.log(`📅 Guidance Hours: Monday to Saturday, 5:00 PM – 7:00 PM IST (20-min slots).`);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on port ${PORT}`);
 });
