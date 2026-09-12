@@ -90,7 +90,7 @@ class GoogleCalendarService {
     }
 
     try {
-      const hostEmail = process.env.HOST_EMAIL || 'rozymehtabofficial@gmail.com';
+      const hostEmail = process.env.HOST_EMAIL || 'rozymehtab@gmail.com';
       const eventPayload = {
         summary: `🎓 Career Guidance: ${bookingData.studentName} with Rozy Mehtab`,
         description: `1-on-1 Student Career Guidance Session\n\n` +

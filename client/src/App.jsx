@@ -7,6 +7,7 @@ import AreasOfGuidance from './components/AreasOfGuidance';
 import ResourceHub from './components/ResourceHub';
 import Footer from './components/Footer';
 import BookingModal from './components/BookingModal/BookingModal';
+import FloatingPromoToast from './components/FloatingPromoToast';
 
 export default function App() {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -47,7 +48,10 @@ export default function App() {
         onOpenBooking={() => handleOpenBooking('Career Advice')}
       />
 
-      {/* 9. Interactive Typeform-Style Multi-Step Booking Engine Modal */}
+      {/* 9. Floating Promo Toast (Dismissible, White bg, lower-right) */}
+      <FloatingPromoToast onOpenBooking={() => handleOpenBooking('Career Advice')} />
+
+      {/* 10. Interactive Typeform-Style Multi-Step Booking Engine Modal */}
       <BookingModal
         isOpen={isBookingOpen}
         onClose={() => setIsBookingOpen(false)}

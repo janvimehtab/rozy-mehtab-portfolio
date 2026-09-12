@@ -4,7 +4,7 @@ const ical = require('ical-generator').default;
 class EmailService {
   constructor() {
     this.transporter = null;
-    this.fromEmail = process.env.EMAIL_FROM || '"Rozy Mehtab - Career Guidance" <rozymehtabofficial@gmail.com>';
+    this.fromEmail = process.env.EMAIL_FROM || '"Rozy Mehtab - Career Guidance" <rozymehtab@gmail.com>';
     this.initTransporter();
   }
 
@@ -62,7 +62,7 @@ class EmailService {
    */
   async sendHostNotification(booking, approveUrl, declineUrl) {
     const timeFormatted = `${this.formatToIST(booking.slotStart)} - ${new Date(booking.slotEnd).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })} IST`;
-    const hostEmail = process.env.HOST_EMAIL || 'rozymehtabofficial@gmail.com';
+    const hostEmail = process.env.HOST_EMAIL || 'rozymehtab@gmail.com';
 
     const html = `
     <!DOCTYPE html>
@@ -198,7 +198,7 @@ class EmailService {
       url: booking.meetLink,
       organizer: {
         name: 'Rozy Mehtab',
-        email: process.env.HOST_EMAIL || 'rozymehtabofficial@gmail.com'
+        email: process.env.HOST_EMAIL || 'rozymehtab@gmail.com'
       }
     });
 

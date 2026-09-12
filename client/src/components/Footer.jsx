@@ -73,7 +73,7 @@ export default function Footer({ onOpenBooking }) {
 
           {/* Option 3: Email */}
           <a
-            href="mailto:rozymehtabofficial@gmail.com"
+            href="mailto:rozymehtab@gmail.com"
             className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-amber-500 hover:bg-slate-850 text-left transition-all group flex flex-col justify-between shadow-sm"
           >
             <div>
@@ -84,7 +84,7 @@ export default function Footer({ onOpenBooking }) {
                 Email Directly
               </h4>
               <p className="text-xs text-slate-400 mt-1 break-all">
-                rozymehtabofficial@gmail.com for formal college queries
+                rozymehtab@gmail.com for formal college queries
               </p>
             </div>
             <div className="pt-4 flex items-center gap-1.5 text-xs font-semibold text-amber-400 group-hover:translate-x-1 transition-transform">
