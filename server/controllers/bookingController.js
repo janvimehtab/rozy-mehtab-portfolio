@@ -1,9 +1,8 @@
+const validator = require('validator');
 const Booking = require('../models/Booking');
 const googleCalendarService = require('../services/googleCalendarService');
 const emailService = require('../services/emailService');
 const { generateActionToken, verifyActionToken } = require('../middleware/securityMiddleware');
-
-const EMAIL_REGEX = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
 
 /**
  * Helper to construct slot times in IST (UTC+5:30)
@@ -52,7 +51,7 @@ exports.getAvailableSlots = async (req, res) => {
     const { date } = req.query;
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return res.status(400).json({ error: 'A valid date parameter (YYYY-MM-DD) is required.' });
+      return res.status(400).json({ success: false, error: 'A valid date parameter (YYYY-MM-DD) is required.' });
     }
 
     const [year, month, day] = date.split('-').map(Number);
@@ -124,7 +123,7 @@ exports.getAvailableSlots = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching available slots:', error);
-    return res.status(500).json({ error: 'Failed to retrieve available slots. Please try again.' });
+    return res.status(500).json({ success: false, error: 'Failed to retrieve available slots. Please try again.' });
   }
 };
 
@@ -147,35 +146,62 @@ exports.createBooking = async (req, res) => {
       slotEnd
     } = req.body;
 
-    // Validate required fields
+    // Validate required fields presence
     if (!studentName || !collegeName || !universityName || !studentEmail || !purpose || !slotStart || !slotEnd) {
-      return res.status(400).json({ error: 'All required fields must be filled.' });
+      return res.status(400).json({ success: false, error: 'All required fields must be filled.' });
     }
 
-    // Validate email
-    const trimmedEmail = studentEmail.trim().toLowerCase();
-    if (!EMAIL_REGEX.test(trimmedEmail)) {
-      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    // Validate student name
+    const trimmedName = typeof studentName === 'string' ? studentName.trim() : '';
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
+      return res.status(400).json({ success: false, error: 'Please provide a valid full name (2 to 100 characters).' });
+    }
+
+    // Validate student email with validator.isEmail
+    const rawEmail = typeof studentEmail === 'string' ? studentEmail.trim() : '';
+    if (!validator.isEmail(rawEmail)) {
+      return res.status(400).json({ success: false, error: 'Please provide a valid email address.' });
+    }
+    const sanitizedEmail = validator.normalizeEmail(rawEmail) || rawEmail.toLowerCase();
+
+    // Validate college and university names
+    const trimmedCollege = typeof collegeName === 'string' ? collegeName.trim() : '';
+    const trimmedUniversity = typeof universityName === 'string' ? universityName.trim() : '';
+    if (!trimmedCollege || !trimmedUniversity) {
+      return res.status(400).json({ success: false, error: 'College and University names are required.' });
     }
 
     // Validate purpose enum
     const validPurposes = ['Career Advice', 'Internship Guidance', 'General Academic Query'];
     if (!validPurposes.includes(purpose)) {
-      return res.status(400).json({ error: 'Invalid purpose selected.' });
+      return res.status(400).json({ success: false, error: 'Invalid purpose selected. Please choose a valid guidance topic.' });
     }
 
+    // Validate slot date and time boundaries
     const startDate = new Date(slotStart);
     const endDate = new Date(slotEnd);
 
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      return res.status(400).json({ error: 'Invalid slotStart or slotEnd date format.' });
+      return res.status(400).json({ success: false, error: 'Invalid slotStart or slotEnd date format.' });
     }
 
-    if (startDate <= new Date()) {
-      return res.status(400).json({ error: 'Cannot book a slot in the past.' });
+    if (startDate >= endDate) {
+      return res.status(400).json({ success: false, error: 'Slot start time must be before slot end time.' });
     }
 
-    // EDGE CASE 1: Double-Booking & Concurrent Requests Atomic Check
+    const now = new Date();
+    if (startDate <= now) {
+      return res.status(400).json({ success: false, error: 'Cannot book a time slot in the past.' });
+    }
+
+    // Prevent excessive advance bookings (> 90 days)
+    const maxFutureDate = new Date();
+    maxFutureDate.setDate(maxFutureDate.getDate() + 90);
+    if (startDate > maxFutureDate) {
+      return res.status(400).json({ success: false, error: 'Sessions can only be booked up to 90 days in advance.' });
+    }
+
+    // ATOMIC DOUBLE-BOOKING CHECK: Prevent race conditions across simultaneous booking attempts
     const existingBooking = await Booking.findOne({
       slotStart: startDate,
       status: { $in: ['PENDING', 'CONFIRMED'] }
@@ -183,23 +209,24 @@ exports.createBooking = async (req, res) => {
 
     if (existingBooking) {
       return res.status(409).json({
+        success: false,
         error: 'Conflict: This slot was just selected by another student. Please pick another available time.'
       });
     }
 
-    // Generate temporary ID for token generation
+    // Generate temporary ID for cryptographic action token generation
     const tempTokenPayload = `init-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const { token: confirmationToken, expiresAt: tokenExpiresAt } = generateActionToken(tempTokenPayload, 'approve');
 
-    // Create record as PENDING
+    // Create database record with PENDING status
     const booking = new Booking({
-      studentName: studentName.trim(),
-      collegeName: collegeName.trim(),
-      universityName: universityName.trim(),
-      studentEmail: trimmedEmail,
-      studentPhone: studentPhone ? studentPhone.trim() : '',
+      studentName: trimmedName,
+      collegeName: trimmedCollege,
+      universityName: trimmedUniversity,
+      studentEmail: sanitizedEmail,
+      studentPhone: studentPhone ? String(studentPhone).trim() : '',
       purpose,
-      shortDescription: shortDescription ? shortDescription.trim().substring(0, 500) : '',
+      shortDescription: shortDescription ? String(shortDescription).trim().substring(0, 500) : '',
       referralSource: referralSource || 'Direct Website',
       slotStart: startDate,
       slotEnd: endDate,
@@ -214,21 +241,23 @@ exports.createBooking = async (req, res) => {
     const { token: approveToken } = generateActionToken(booking._id.toString(), 'approve');
     const { token: declineToken } = generateActionToken(booking._id.toString(), 'decline');
 
-    // Update confirmation token to the specific approveToken
+    // Bind confirmation token to the specific approveToken
     booking.confirmationToken = approveToken;
     await booking.save();
 
     const serverBaseUrl = process.env.SERVER_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 5000}`;
-    const baseUrl = process.env.CLIENT_URL || serverBaseUrl;
     
-    // Construct single-use action URLs
+    // Construct single-use action URLs for host email
     const approveUrl = `${serverBaseUrl}/api/bookings/approve?token=${approveToken}`;
     const declineUrl = `${serverBaseUrl}/api/bookings/decline?token=${declineToken}`;
 
-    // Fire host notification email asynchronously
-    emailService.sendHostNotification(booking, approveUrl, declineUrl).catch(err => {
-      console.error('Failed to dispatch host email notification:', err.message);
-    });
+    // NON-BLOCKING ISOLATED EMAIL DISPATCH:
+    // If SMTP fails (bad credentials, port timeout, cloud firewall), the booking remains safely saved in DB
+    try {
+      await emailService.sendHostNotification(booking, approveUrl, declineUrl);
+    } catch (emailErr) {
+      console.warn(`❌ Nodemailer delivery failed for host notification: ${emailErr.message}`);
+    }
 
     return res.status(201).json({
       success: true,
@@ -243,10 +272,10 @@ exports.createBooking = async (req, res) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(409).json({ error: 'This time slot is already reserved.' });
+      return res.status(409).json({ success: false, error: 'This time slot is already reserved.' });
     }
-    console.error('Error creating booking:', error);
-    return res.status(500).json({ error: 'Internal server error while processing booking.' });
+    console.error('❌ Error creating booking:', error);
+    return res.status(500).json({ success: false, error: 'Internal server error while processing booking.' });
   }
 };
 
@@ -303,10 +332,12 @@ exports.approveBooking = async (req, res) => {
     booking.meetLink = meetLink;
     await booking.save();
 
-    // Send confirmation email with attached .ics to student
-    emailService.sendStudentConfirmation(booking).catch(err => {
-      console.error('Error sending student confirmation email:', err.message);
-    });
+    // Send confirmation email with attached .ics to student (isolated & non-blocking)
+    try {
+      await emailService.sendStudentConfirmation(booking);
+    } catch (emailErr) {
+      console.warn(`❌ Nodemailer delivery failed for student confirmation: ${emailErr.message}`);
+    }
 
     const successContent = `
       You have successfully confirmed the 20-minute guidance session with <strong>${booking.studentName}</strong>.
@@ -355,10 +386,12 @@ exports.declineBooking = async (req, res) => {
     booking.status = 'DECLINED';
     await booking.save();
 
-    // Notify student politely
-    emailService.sendStudentDeclination(booking, 'Administrative scheduling limit reached.').catch(err => {
-      console.error('Error sending declination email:', err.message);
-    });
+    // Notify student politely (isolated & non-blocking)
+    try {
+      await emailService.sendStudentDeclination(booking, 'Administrative scheduling limit reached.');
+    } catch (emailErr) {
+      console.warn(`❌ Nodemailer delivery failed for student declination: ${emailErr.message}`);
+    }
 
     const declineContent = `
       You have declined the booking request from <strong>${booking.studentName}</strong>.

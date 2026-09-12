@@ -1,6 +1,12 @@
 const nodemailer = require('nodemailer');
 const ical = require('ical-generator').default;
 
+function cleanAppPassword(pass) {
+  if (!pass) return '';
+  // Automatically strip whitespace and newlines from Google App Passwords
+  return pass.replace(/\s+/g, '').trim();
+}
+
 class EmailService {
   constructor() {
     this.transporter = null;
@@ -9,19 +15,43 @@ class EmailService {
   }
 
   async initTransporter() {
-    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const rawHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const rawPort = parseInt(process.env.SMTP_PORT || '465', 10);
+    const isSecure = process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === 'true' : rawPort === 465;
+    const smtpUser = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : '';
+    const smtpPass = cleanAppPassword(process.env.SMTP_PASS);
+
+    if (smtpUser && smtpPass) {
       this.transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587', 10),
-        secure: process.env.SMTP_SECURE === 'true',
+        host: rawHost,
+        port: rawPort,
+        secure: isSecure,
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS
+          user: smtpUser,
+          pass: smtpPass
+        },
+        tls: {
+          // Prevent cloud certificate negotiation blocks on host servers like Render
+          rejectUnauthorized: false
         }
       });
-      console.log('✅ Nodemailer configured with SMTP credentials.');
+
+      console.log(`✅ Nodemailer configured: ${rawHost}:${rawPort} (secure: ${isSecure}, user: ${smtpUser})`);
+
+      // Connection Verification Hook on application boot
+      this.transporter.verify((error, success) => {
+        if (error) {
+          console.error('❌ Nodemailer SMTP Connection Verification Failed:');
+          console.error(`   Error Message: ${error.message}`);
+          console.error(`   Target Host: ${rawHost}:${rawPort} (Secure: ${isSecure})`);
+          console.error(`   User Account: ${smtpUser}`);
+          console.error('   👉 Tip: Double check your SMTP_USER and 16-character Google App Password in Render.');
+        } else {
+          console.log(`✅ SMTP connection verified successfully on ${rawHost}:${rawPort}. Outbound mail engine is ready.`);
+        }
+      });
     } else {
-      console.log('ℹ️ SMTP credentials not configured. Generating preview ethereal/console logger.');
+      console.log('ℹ️ SMTP credentials not fully provided. Generating preview ethereal/console logger.');
       try {
         const testAccount = await nodemailer.createTestAccount();
         this.transporter = nodemailer.createTransport({
@@ -31,6 +61,9 @@ class EmailService {
           auth: {
             user: testAccount.user,
             pass: testAccount.pass
+          },
+          tls: {
+            rejectUnauthorized: false
           }
         });
         console.log(`✅ Ethereal test mailer ready for mock emails (${testAccount.user})`);
@@ -174,10 +207,13 @@ class EmailService {
         if (nodemailer.getTestMessageUrl(info)) {
           console.log(`✉️ Preview Host Email in browser: ${nodemailer.getTestMessageUrl(info)}`);
         }
+        return { success: true, messageId: info?.messageId };
       } catch (err) {
-        console.error('Error sending host email via SMTP:', err.message);
+        console.warn(`❌ Nodemailer delivery failed for host notification: ${err.message}`);
+        return { success: false, error: err.message };
       }
     }
+    return { success: true, isSimulated: true };
   }
 
   /**
@@ -288,10 +324,13 @@ class EmailService {
         if (nodemailer.getTestMessageUrl(info)) {
           console.log(`✉️ Preview Student Email: ${nodemailer.getTestMessageUrl(info)}`);
         }
+        return { success: true, messageId: info?.messageId };
       } catch (err) {
-        console.error('Error sending student confirmation email:', err.message);
+        console.warn(`❌ Nodemailer delivery failed for student confirmation: ${err.message}`);
+        return { success: false, error: err.message };
       }
     }
+    return { success: true, isSimulated: true };
   }
 
   /**
@@ -311,16 +350,19 @@ class EmailService {
 
     if (this.transporter) {
       try {
-        await this.transporter.sendMail({
+        const info = await this.transporter.sendMail({
           from: this.fromEmail,
           to: booking.studentEmail,
           subject: `Update regarding your guidance request with Rozy Mehtab`,
           html
         });
+        return { success: true, messageId: info?.messageId };
       } catch (err) {
-        console.error('Error sending declination email:', err.message);
+        console.warn(`❌ Nodemailer delivery failed for student declination: ${err.message}`);
+        return { success: false, error: err.message };
       }
     }
+    return { success: true, isSimulated: true };
   }
 }
 

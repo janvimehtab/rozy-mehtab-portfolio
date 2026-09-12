@@ -10,6 +10,17 @@ const { initCleanupCron } = require('./services/cleanupService');
 const bookingRoutes = require('./routes/bookingRoutes');
 
 // ===================================================
+// Process-Level Safety Hooks (Crash Prevention on Render)
+// ===================================================
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Promise Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+});
+
+// ===================================================
 // 1. Startup Environment Validation
 // ===================================================
 function validateEnvironment() {
@@ -134,7 +145,7 @@ app.use('/api', bookingRoutes);
 
 // Unhandled API Route 404
 app.use('/api/*', (req, res) => {
-  res.status(404).json({ error: 'Requested API endpoint not found.' });
+  res.status(404).json({ success: false, error: 'Requested API endpoint not found.' });
 });
 
 // ===================================================
@@ -168,10 +179,13 @@ app.get('*', (req, res) => {
 // 5. Global Error Handling
 // ===================================================
 app.use((err, req, res, next) => {
-  console.error('Unhandled Server Error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  console.error('❌ Unhandled Server Error:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  return res.status(err.status || 500).json({
+    success: false,
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : (err.message || 'Internal server error')
   });
 });
 
