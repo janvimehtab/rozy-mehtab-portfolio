@@ -27,8 +27,23 @@ function validateEnvironment() {
   const isProduction = process.env.NODE_ENV === 'production';
   const missingCritical = [];
 
+  // 1. MONGODB_URI verification
+  if (!process.env.MONGODB_URI) {
+    if (isProduction) {
+      missingCritical.push('MONGODB_URI');
+    } else {
+      console.warn('⚠️ Warning: MONGODB_URI not provided. Server will run in in-memory simulation mode for local testing.');
+    }
+  } else {
+    const uri = process.env.MONGODB_URI.trim();
+    if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
+      console.error('❌ FATAL CONFIG ERROR: MONGODB_URI must start with "mongodb://" or "mongodb+srv://".');
+      if (isProduction) process.exit(1);
+    }
+    console.log('🔍 Verified MONGODB_URI presence in environment configuration.');
+  }
+
   if (isProduction) {
-    if (!process.env.MONGODB_URI) missingCritical.push('MONGODB_URI');
     if (!process.env.ACTION_TOKEN_SECRET) missingCritical.push('ACTION_TOKEN_SECRET');
   }
 
@@ -51,6 +66,11 @@ function validateEnvironment() {
 validateEnvironment();
 
 const app = express();
+
+// Enable reverse proxy support for Render, Cloudflare, etc.
+// Required for express-rate-limit to resolve accurate client IPs without ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
 

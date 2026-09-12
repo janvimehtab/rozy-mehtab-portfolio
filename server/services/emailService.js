@@ -15,39 +15,35 @@ class EmailService {
   }
 
   async initTransporter() {
-    const rawHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const rawPort = parseInt(process.env.SMTP_PORT || '465', 10);
-    const isSecure = process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === 'true' : rawPort === 465;
     const smtpUser = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : '';
-    const smtpPass = cleanAppPassword(process.env.SMTP_PASS);
+    const smtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
 
     if (smtpUser && smtpPass) {
       this.transporter = nodemailer.createTransport({
-        host: rawHost,
-        port: rawPort,
-        secure: isSecure,
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
           user: smtpUser,
           pass: smtpPass
         },
         tls: {
-          // Prevent cloud certificate negotiation blocks on host servers like Render
           rejectUnauthorized: false
         }
       });
 
-      console.log(`✅ Nodemailer configured: ${rawHost}:${rawPort} (secure: ${isSecure}, user: ${smtpUser})`);
+      console.log(`✅ Nodemailer SSL transport configured: smtp.gmail.com:465 (secure: true, user: ${smtpUser})`);
 
       // Connection Verification Hook on application boot
       this.transporter.verify((error, success) => {
         if (error) {
           console.error('❌ Nodemailer SMTP Connection Verification Failed:');
           console.error(`   Error Message: ${error.message}`);
-          console.error(`   Target Host: ${rawHost}:${rawPort} (Secure: ${isSecure})`);
+          console.error(`   Target Host: smtp.gmail.com:465 (Secure: true)`);
           console.error(`   User Account: ${smtpUser}`);
           console.error('   👉 Tip: Double check your SMTP_USER and 16-character Google App Password in Render.');
         } else {
-          console.log(`✅ SMTP connection verified successfully on ${rawHost}:${rawPort}. Outbound mail engine is ready.`);
+          console.log(`✅ SMTP connection verified successfully on smtp.gmail.com:465. Outbound mail engine is ready.`);
         }
       });
     } else {
