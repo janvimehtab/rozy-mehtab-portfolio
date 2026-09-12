@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, School, Mail, Phone, ArrowRight, AlertCircle } from 'lucide-react';
+import { User, School, Mail, Phone, ArrowRight, AlertCircle, GraduationCap } from 'lucide-react';
 
 const EMAIL_REGEX = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
 
@@ -12,11 +12,23 @@ export default function Step1Profile({ formData, onChange, onNext }) {
     if (!formData.collegeName?.trim()) errs.collegeName = 'College Name is required.';
     if (!formData.universityName?.trim()) errs.universityName = 'University Name is required.';
     
+    const year = (formData.academicYear || formData.year || '').trim();
+    if (!year) {
+      errs.academicYear = 'Academic Year / Current Year is required.';
+    }
+
     const email = formData.studentEmail?.trim() || '';
     if (!email) {
       errs.studentEmail = 'Email address is required.';
     } else if (!EMAIL_REGEX.test(email)) {
       errs.studentEmail = 'Please provide a valid email format (e.g. name@example.com).';
+    }
+
+    const phone = (formData.studentPhone || formData.phone || '').trim();
+    if (!phone) {
+      errs.studentPhone = 'Phone number is required.';
+    } else if (phone.replace(/\D/g, '').length < 10) {
+      errs.studentPhone = 'Please enter a valid phone number (at least 10 digits).';
     }
 
     setErrors(errs);
@@ -123,6 +135,38 @@ export default function Step1Profile({ formData, onChange, onNext }) {
           )}
         </div>
 
+        {/* Academic Year / Current Year - Standard text input as requested */}
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            Year / Current Year <span className="text-rose-600">*</span>
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+            <input
+              type="text"
+              required
+              placeholder="e.g. 3rd Year / 2026"
+              value={formData.academicYear || formData.year || ''}
+              onChange={(e) => {
+                onChange('academicYear', e.target.value);
+                onChange('year', e.target.value);
+              }}
+              className={`w-full pl-10 pr-3.5 py-3 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 ${
+                errors.academicYear
+                  ? 'border-rose-300 focus:ring-rose-200 bg-rose-50/20'
+                  : 'border-slate-200 focus:border-brand-500 focus:ring-brand-100'
+              }`}
+            />
+          </div>
+          {errors.academicYear && (
+            <p className="text-xs text-rose-600 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> {errors.academicYear}
+            </p>
+          )}
+        </div>
+
         {/* Email Address */}
         <div>
           <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -134,6 +178,7 @@ export default function Step1Profile({ formData, onChange, onNext }) {
             </div>
             <input
               type="email"
+              required
               placeholder="you@gmail.com"
               value={formData.studentEmail}
               onChange={(e) => onChange('studentEmail', e.target.value)}
@@ -151,10 +196,10 @@ export default function Step1Profile({ formData, onChange, onNext }) {
           )}
         </div>
 
-        {/* Phone / WhatsApp */}
+        {/* Phone / WhatsApp (Mandatory) */}
         <div>
           <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-            Phone / WhatsApp <span className="text-slate-400 font-normal text-[11px]">(Recommended)</span>
+            Phone Number / WhatsApp <span className="text-rose-600">*</span>
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -162,12 +207,25 @@ export default function Step1Profile({ formData, onChange, onNext }) {
             </div>
             <input
               type="tel"
+              required
               placeholder="e.g. +91 98765 43210"
-              value={formData.studentPhone}
-              onChange={(e) => onChange('studentPhone', e.target.value)}
-              className="w-full pl-10 pr-3.5 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:border-brand-500 focus:ring-brand-100"
+              value={formData.studentPhone || formData.phone || ''}
+              onChange={(e) => {
+                onChange('studentPhone', e.target.value);
+                onChange('phone', e.target.value);
+              }}
+              className={`w-full pl-10 pr-3.5 py-3 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 ${
+                errors.studentPhone
+                  ? 'border-rose-300 focus:ring-rose-200 bg-rose-50/20'
+                  : 'border-slate-200 focus:border-brand-500 focus:ring-brand-100'
+              }`}
             />
           </div>
+          {errors.studentPhone && (
+            <p className="text-xs text-rose-600 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> {errors.studentPhone}
+            </p>
+          )}
         </div>
       </div>
 

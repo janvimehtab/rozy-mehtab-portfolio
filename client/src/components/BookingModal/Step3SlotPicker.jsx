@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, ArrowLeft, Loader2, AlertTriangle, Check, Send } from 'lucide-react';
 import { getAvailableSlots } from '../../services/api';
 
+/**
+ * Format date using local calendar components (YYYY-MM-DD)
+ * Eliminates UTC off-by-one conversion bugs where clicking day pills selects previous day
+ */
+const formatLocalDate = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function Step3SlotPicker({
   selectedSlot,
   onSelectSlot,
@@ -16,7 +28,7 @@ export default function Step3SlotPicker({
     if (d.getDay() === 0) { // Sunday
       d.setDate(d.getDate() + 1); // Monday
     }
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   };
 
   const [dateStr, setDateStr] = useState(getInitialDateStr);
@@ -24,8 +36,8 @@ export default function Step3SlotPicker({
   const [slotsData, setSlotsData] = useState(null);
   const [fetchError, setFetchError] = useState(null);
 
-  const minDate = new Date().toISOString().split('T')[0];
-  const maxDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const minDate = formatLocalDate(new Date());
+  const maxDate = formatLocalDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
   useEffect(() => {
     if (!dateStr) return;
@@ -60,17 +72,19 @@ export default function Step3SlotPicker({
 
   const getUpcomingWorkingDays = () => {
     const days = [];
-    const curr = new Date();
-    let count = 0;
-    while (days.length < 5 && count < 14) {
-      curr.setDate(curr.getDate() + 1);
+    const base = new Date();
+    base.setHours(12, 0, 0, 0); // Avoid midnight DST/rollover drift
+    let count = 1;
+    while (days.length < 5 && count < 20) {
+      const target = new Date(base);
+      target.setDate(base.getDate() + count);
       count++;
-      if (curr.getDay() !== 0) {
+      if (target.getDay() !== 0) { // Skip Sundays
         days.push({
-          dateStr: curr.toISOString().split('T')[0],
-          dayName: curr.toLocaleDateString('en-IN', { weekday: 'short' }),
-          dayNum: curr.getDate(),
-          month: curr.toLocaleDateString('en-IN', { month: 'short' })
+          dateStr: formatLocalDate(target),
+          dayName: target.toLocaleDateString('en-IN', { weekday: 'short' }),
+          dayNum: target.getDate(),
+          month: target.toLocaleDateString('en-IN', { month: 'short' })
         });
       }
     }

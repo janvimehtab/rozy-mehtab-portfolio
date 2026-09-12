@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sparkles, CheckCircle2, Calendar, Mail } from 'lucide-react';
+import { X, Sparkles, CheckCircle2, Calendar, Mail, Clock, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
@@ -9,6 +9,21 @@ import Step3SlotPicker from './Step3SlotPicker';
 import { createBooking } from '../../services/api';
 
 const PROMO_EXPIRY_DATE = new Date('2026-10-31T23:59:59Z');
+
+/**
+ * Format slot start date to human-readable Indian local date (e.g. Wednesday, 16 Sep 2026)
+ */
+const formatSlotDateDisplay = (slotStart) => {
+  if (!slotStart) return '';
+  const d = new Date(slotStart);
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata'
+  });
+};
 
 export default function BookingModal({ isOpen, onClose, initialPurpose = 'Career Advice' }) {
   const isFreePeriod = new Date() <= PROMO_EXPIRY_DATE;
@@ -22,8 +37,11 @@ export default function BookingModal({ isOpen, onClose, initialPurpose = 'Career
     studentName: '',
     collegeName: '',
     universityName: 'Punjabi University, Patiala',
+    academicYear: '',
+    year: '',
     studentEmail: '',
     studentPhone: '',
+    phone: '',
     purpose: initialPurpose || 'Career Advice',
     shortDescription: '',
     referralSource: 'Instagram'
@@ -34,7 +52,14 @@ export default function BookingModal({ isOpen, onClose, initialPurpose = 'Career
   if (!isOpen) return null;
 
   const handleFieldChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (field === 'academicYear') updated.year = value;
+      if (field === 'year') updated.academicYear = value;
+      if (field === 'studentPhone') updated.phone = value;
+      if (field === 'phone') updated.studentPhone = value;
+      return updated;
+    });
   };
 
   // Immediate reliable close handler
@@ -51,6 +76,18 @@ export default function BookingModal({ isOpen, onClose, initialPurpose = 'Career
       return;
     }
 
+    const resolvedPhone = (formData.studentPhone || formData.phone || '').trim();
+    if (!resolvedPhone) {
+      setSubmitError('Phone number is required. Please go back to step 1 and provide your contact number.');
+      return;
+    }
+
+    const resolvedYear = (formData.academicYear || formData.year || '').trim();
+    if (!resolvedYear) {
+      setSubmitError('Academic Year / Current Year is required. Please go back to step 1 and specify your year.');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -59,8 +96,11 @@ export default function BookingModal({ isOpen, onClose, initialPurpose = 'Career
         studentName: formData.studentName.trim(),
         collegeName: formData.collegeName.trim(),
         universityName: formData.universityName.trim(),
+        academicYear: resolvedYear,
+        year: resolvedYear,
         studentEmail: formData.studentEmail.trim().toLowerCase(),
-        studentPhone: formData.studentPhone.trim(),
+        studentPhone: resolvedPhone,
+        phone: resolvedPhone,
         purpose: formData.purpose,
         shortDescription: formData.shortDescription.trim(),
         referralSource: formData.referralSource,
@@ -83,6 +123,8 @@ export default function BookingModal({ isOpen, onClose, initialPurpose = 'Career
       setConfirmedData({
         ...payload,
         slotLabel: selectedSlot.label,
+        formattedDate: formatSlotDateDisplay(selectedSlot.slotStart),
+        formattedTime: `${selectedSlot.label} (IST)`,
         bookingId: response.booking?.id
       });
       setStep('success');
@@ -216,30 +258,57 @@ export default function BookingModal({ isOpen, onClose, initialPurpose = 'Career
 
                 <div className="space-y-2">
                   <h3 className="text-2xl font-bold text-slate-900 font-serif">
-                    Request Sent Successfully!
+                    Request Sent Successfully! 🎉
                   </h3>
                   <p className="text-sm text-slate-600 max-w-md mx-auto">
-                    Rozy Mehtab will review your request and confirm your 20-minute slot shortly.
+                    Your 1-on-1 guidance consultation request with Rozy Mehtab has been submitted.
                   </p>
                 </div>
 
-                {/* Clean overview with only main details matching Page 4 */}
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-left max-w-md mx-auto space-y-2.5 text-xs">
-                  <div className="flex items-center gap-2 text-slate-800 font-semibold">
-                    <Calendar className="w-4 h-4 text-brand-700 shrink-0" />
-                    <span>Slot: {confirmedData?.slotLabel} (IST)</span>
+                {/* Explicit Selected Date, Selected Time Slot & Notification Card */}
+                <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 text-left max-w-md mx-auto space-y-3.5 text-xs sm:text-sm shadow-xs">
+                  {/* Selected Date */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-rose-100/70 text-brand-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Selected Date</div>
+                      <div className="font-bold text-slate-900 text-sm sm:text-base">
+                        {confirmedData?.formattedDate}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-800 font-semibold">
-                    <Mail className="w-4 h-4 text-brand-700 shrink-0" />
-                    <span>Notification sent to: {confirmedData?.studentEmail}</span>
+
+                  {/* Selected Time Slot */}
+                  <div className="flex items-start gap-3 pt-3 border-t border-slate-200/70">
+                    <div className="w-8 h-8 rounded-lg bg-rose-100/70 text-brand-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Selected Time Slot</div>
+                      <div className="font-bold text-slate-900 text-sm sm:text-base">
+                        {confirmedData?.formattedTime}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-200">
-                    💡 Once confirmed by Rozy, you will receive an email with your direct Google Meet link and an attached calendar file (.ics) to add to your schedule.
+
+                  {/* Clear Notification Message */}
+                  <div className="pt-3 border-t border-slate-200/70">
+                    <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs sm:text-sm leading-relaxed">
+                      <p className="font-semibold text-emerald-900">
+                        📢 Rozy Mehtab will soon send you the meeting link on <span className="underline decoration-emerald-500 font-bold">{confirmedData?.studentEmail}</span> / <span className="underline decoration-emerald-500 font-bold">{confirmedData?.studentPhone || confirmedData?.phone}</span>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 pt-1">
+                    💡 Once confirmed by Rozy, you will receive an email containing the direct Google Meet link and an attached calendar invitation (<code>invite.ics</code>).
                   </p>
                 </div>
 
                 {/* Button reads only "Done" */}
-                <div className="pt-4 flex justify-center">
+                <div className="pt-3 flex justify-center">
                   <button
                     onClick={handleClose}
                     className="px-10 py-3.5 bg-slate-900 hover:bg-brand-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-md cursor-pointer"

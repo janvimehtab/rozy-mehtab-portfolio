@@ -137,8 +137,11 @@ exports.createBooking = async (req, res) => {
       studentName,
       collegeName,
       universityName,
+      academicYear,
+      year,
       studentEmail,
       studentPhone,
+      phone,
       purpose,
       shortDescription,
       referralSource,
@@ -146,9 +149,12 @@ exports.createBooking = async (req, res) => {
       slotEnd
     } = req.body;
 
+    const resolvedPhone = (studentPhone || phone || '').toString().trim();
+    const resolvedYear = (academicYear || year || '').toString().trim();
+
     // Validate required fields presence
-    if (!studentName || !collegeName || !universityName || !studentEmail || !purpose || !slotStart || !slotEnd) {
-      return res.status(400).json({ success: false, error: 'All required fields must be filled.' });
+    if (!studentName || !collegeName || !universityName || !studentEmail || !resolvedPhone || !purpose || !slotStart || !slotEnd) {
+      return res.status(400).json({ success: false, error: 'All required fields (including Phone Number) must be filled.' });
     }
 
     // Validate student name
@@ -223,8 +229,10 @@ exports.createBooking = async (req, res) => {
       studentName: trimmedName,
       collegeName: trimmedCollege,
       universityName: trimmedUniversity,
+      academicYear: resolvedYear,
+      year: resolvedYear,
       studentEmail: sanitizedEmail,
-      studentPhone: studentPhone ? String(studentPhone).trim() : '',
+      studentPhone: resolvedPhone,
       purpose,
       shortDescription: shortDescription ? String(shortDescription).trim().substring(0, 500) : '',
       referralSource: referralSource || 'Direct Website',

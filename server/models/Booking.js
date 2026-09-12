@@ -6,6 +6,8 @@ const bookingSchema = new mongoose.Schema({
   studentName: { type: String, required: true, trim: true },
   collegeName: { type: String, required: true, trim: true },
   universityName: { type: String, required: true, trim: true },
+  academicYear: { type: String, trim: true, default: '' },
+  year: { type: String, trim: true, default: '' },
   studentEmail: { 
     type: String, 
     required: true, 
@@ -55,8 +57,10 @@ class InMemoryBookingDocument {
     this.studentName = data.studentName;
     this.collegeName = data.collegeName;
     this.universityName = data.universityName;
+    this.academicYear = data.academicYear || data.year || '';
+    this.year = data.year || data.academicYear || '';
     this.studentEmail = data.studentEmail;
-    this.studentPhone = data.studentPhone || '';
+    this.studentPhone = data.studentPhone || data.phone || '';
     this.purpose = data.purpose;
     this.shortDescription = data.shortDescription || '';
     this.referralSource = data.referralSource || 'Direct Website';
