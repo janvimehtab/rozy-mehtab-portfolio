@@ -102,13 +102,26 @@ class GoogleCalendarService {
    * @param {Object} bookingData 
    * @returns {Promise<{ eventId: string, meetLink: string }>}
    */
+  /**
+   * Create Google Calendar Event with Google Meet conference
+   * @param {Object} bookingData 
+   * @returns {Promise<{ eventId: string, meetUrl: string, meetLink: string, hangoutLink: string }>}
+   */
   async createEvent(bookingData) {
-    const fallbackMeetLink = generateFallbackMeetLink(bookingData._id);
+    const fallbackMeetUrl = generateFallbackMeetLink(bookingData._id);
 
     if (!this.isConfigured || !this.calendar) {
       const mockEventId = `sim_gcal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      console.log(`ℹ️ [Google Calendar Sim] Created event ${mockEventId} with Meet: ${fallbackMeetLink}`);
-      return { eventId: mockEventId, meetLink: fallbackMeetLink, isMock: true };
+      console.log(`ℹ️ [Google Calendar Sim] Created event ${mockEventId} with Meet: ${fallbackMeetUrl}`);
+      return {
+        eventId: mockEventId,
+        meetUrl: fallbackMeetUrl,
+        meetLink: fallbackMeetUrl,
+        hangoutLink: fallbackMeetUrl,
+        isMock: true,
+        toString() { return fallbackMeetUrl; },
+        valueOf() { return fallbackMeetUrl; }
+      };
     }
 
     try {
@@ -136,7 +149,9 @@ class GoogleCalendarService {
         conferenceData: {
           createRequest: {
             requestId: `rozy-meet-${bookingData._id || Date.now()}`,
-            conferenceSolutionKey: { type: 'hangoutsMeet' }
+            conferenceSolutionKey: {
+              type: 'hangoutsMeet'
+            }
           }
         },
         reminders: {
@@ -154,28 +169,46 @@ class GoogleCalendarService {
         conferenceDataVersion: 1
       });
 
-      const event = response.data;
-      const meetLink = event.hangoutLink ||
-                       event.conferenceData?.entryPoints?.find(ep => ep.entryPointType === 'video')?.uri ||
-                       fallbackMeetLink;
+      // Reliably resolve meetUrl as response.data.hangoutLink || fallbackMeetUrl
+      const meetUrl = response.data?.hangoutLink ||
+                      response.data?.conferenceData?.entryPoints?.find(ep => ep.entryPointType === 'video')?.uri ||
+                      fallbackMeetUrl;
 
-      console.log(`✅ Google Calendar event created: ${event.id} (Meet: ${meetLink})`);
+      console.log(`✅ Google Calendar event created: ${response.data?.id} (Meet: ${meetUrl})`);
       return {
-        eventId: event.id,
-        meetLink,
-        isMock: false
+        eventId: response.data?.id || `evt_${Date.now()}`,
+        meetUrl: meetUrl,
+        meetLink: meetUrl,
+        hangoutLink: response.data?.hangoutLink || fallbackMeetUrl,
+        isMock: false,
+        toString() { return meetUrl; },
+        valueOf() { return meetUrl; }
       };
     } catch (error) {
       console.warn(`⚠️ Google Calendar API event creation failed: ${error.message}`);
       console.warn('ℹ️ Falling back to generated Google Meet URL to prevent transaction failure.');
       return {
         eventId: `manual_${Date.now()}`,
-        meetLink: fallbackMeetLink,
+        meetUrl: fallbackMeetUrl,
+        meetLink: fallbackMeetUrl,
+        hangoutLink: fallbackMeetUrl,
         isFallback: true,
-        error: error.message
+        error: error.message,
+        toString() { return fallbackMeetUrl; },
+        valueOf() { return fallbackMeetUrl; }
       };
     }
   }
+
+  /**
+   * Generates a Google Meet URL directly: returns response.data.hangoutLink || fallbackMeetUrl
+   */
+  async createGoogleMeetLink(bookingData) {
+    const event = await this.createEvent(bookingData);
+    return event.meetUrl || event.meetLink || generateFallbackMeetLink(bookingData._id);
+  }
 }
 
-module.exports = new GoogleCalendarService();
+const googleCalendarService = new GoogleCalendarService();
+module.exports = googleCalendarService;
+module.exports.generateFallbackMeetLink = generateFallbackMeetLink;

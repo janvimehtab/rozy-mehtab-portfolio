@@ -185,8 +185,11 @@ class EmailService {
 
   /**
    * Send confirmation to student with Google Meet link and .ics file
+   * @param {Object} booking 
+   * @param {string} [overrideMeetUrl] - Optional explicit Google Meet URL
    */
-  async sendStudentConfirmation(booking) {
+  async sendStudentConfirmation(booking, overrideMeetUrl) {
+    const meetUrl = overrideMeetUrl || booking.meetUrl || booking.meetLink || 'https://meet.google.com';
     const timeFormatted = `${this.formatToIST(booking.slotStart)} - ${new Date(booking.slotEnd).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })} IST`;
 
     // Build iCalendar (.ics) string
@@ -196,9 +199,9 @@ class EmailService {
       start: booking.slotStart,
       end: booking.slotEnd,
       summary: `🎓 Career Guidance Session with Rozy Mehtab`,
-      description: `1-on-1 Guidance Session with Rozy Mehtab (College Admin, PMN College Rajpura).\n\nTopic: ${booking.purpose}\nGoogle Meet: ${booking.meetLink}\n\nLooking forward to meeting you!`,
-      location: booking.meetLink || 'Google Meet',
-      url: booking.meetLink,
+      description: `1-on-1 Guidance Session with Rozy Mehtab (College Admin, PMN College Rajpura).\n\nTopic: ${booking.purpose}\nGoogle Meet Link: ${meetUrl}\n\nLooking forward to meeting you!`,
+      location: meetUrl,
+      url: meetUrl,
       organizer: {
         name: 'Rozy Mehtab',
         email: process.env.HOST_EMAIL || 'rozymehtab@gmail.com'
@@ -240,12 +243,27 @@ class EmailService {
             <div style="font-size: 13px; text-transform: uppercase; color: #166534; font-weight: 700; letter-spacing: 0.5px;">Confirmed Date & Time</div>
             <div style="font-size: 18px; font-weight: 800; color: #14532d; margin-top: 4px;">${timeFormatted}</div>
             
-            ${booking.meetLink ? `
-              <div style="margin-top: 16px;">
-                <a href="${booking.meetLink}" target="_blank" class="meet-btn">📹 Join with Google Meet</a>
-                <div style="font-size: 12px; color: #64748b; margin-top: 6px;">Link: <a href="${booking.meetLink}" style="color: #1a73e8;">${booking.meetLink}</a></div>
+            <div style="margin-top: 18px; padding: 18px; background: #ffffff; border: 1px solid #bbf7d0; border-radius: 8px; text-align: center;">
+              <div style="font-size: 14px; font-weight: 700; color: #166534; margin-bottom: 10px;">📹 Online Meeting Link</div>
+
+              <!-- Clickable Action Link / Button -->
+              <p style="margin: 8px 0 12px 0;">
+                <a href="${meetUrl}" target="_blank" class="meet-btn" style="display: inline-block; background-color: #1a73e8; color: #ffffff !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 15px; box-shadow: 0 2px 4px rgba(26,115,232,0.3);">Join Google Meet Session</a>
+              </p>
+
+              <!-- Secondary Clickable Text Link -->
+              <p style="margin: 0 0 10px 0; font-size: 13px; color: #475569;">
+                Direct Link: <a href="${meetUrl}" target="_blank" style="color: #1a73e8; font-weight: 600; text-decoration: underline;">Join Google Meet Session</a>
+              </p>
+
+              <!-- Raw Text Fallback -->
+              <div style="margin-top: 12px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; text-align: left;">
+                <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Meeting URL (Raw Text Fallback):</div>
+                <div style="font-family: Consolas, Monaco, monospace; font-size: 13px; color: #0f172a; word-break: break-all;">
+                  <a href="${meetUrl}" style="color: #0f172a; text-decoration: none;">${meetUrl}</a>
+                </div>
               </div>
-            ` : ''}
+            </div>
           </div>
 
           <div class="details-box">
@@ -276,7 +294,7 @@ class EmailService {
     console.log(`\n================== STUDENT CONFIRMATION ==================`);
     console.log(`To: ${recipientEmail} (Student: ${booking.studentEmail})`);
     console.log(`Subject: Confirmed: Career Guidance Session with Rozy Mehtab`);
-    console.log(`Google Meet: ${booking.meetLink}`);
+    console.log(`Google Meet: ${meetUrl}`);
     console.log(`==========================================================\n`);
 
     return await sendEmail({

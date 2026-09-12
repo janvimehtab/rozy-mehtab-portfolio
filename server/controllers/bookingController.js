@@ -325,16 +325,23 @@ exports.approveBooking = async (req, res) => {
     }
 
     // Generate Google Meet event & link
-    const { eventId, meetLink } = await googleCalendarService.createEvent(booking);
+    const calendarResult = await googleCalendarService.createEvent(booking);
+    const meetUrl = (typeof calendarResult === 'string')
+      ? calendarResult
+      : (calendarResult?.meetUrl || calendarResult?.meetLink || calendarResult?.hangoutLink);
+    const eventId = (typeof calendarResult === 'object' && calendarResult?.eventId)
+      ? calendarResult.eventId
+      : `meet_${Date.now()}`;
 
     booking.status = 'CONFIRMED';
     booking.googleCalendarEventId = eventId;
-    booking.meetLink = meetLink;
+    booking.meetLink = meetUrl;
+    booking.meetUrl = meetUrl;
     await booking.save();
 
     // Send confirmation email with attached .ics to student (isolated & non-blocking via Resend API)
     try {
-      await emailService.sendStudentConfirmation(booking);
+      await emailService.sendStudentConfirmation(booking, meetUrl);
     } catch (emailErr) {
       console.warn(`❌ Non-blocking email dispatch warning for student confirmation: ${emailErr.message}`);
     }
@@ -343,7 +350,7 @@ exports.approveBooking = async (req, res) => {
       You have successfully confirmed the 20-minute guidance session with <strong>${booking.studentName}</strong>.
       <br/><br/>
       <strong>Slot:</strong> ${emailService.formatToIST(booking.slotStart)}<br/>
-      <strong>Google Meet:</strong> <a href="${meetLink}" target="_blank" style="color: #2563eb; font-weight: bold;">${meetLink}</a><br/>
+      <strong>Google Meet:</strong> <a href="${meetUrl}" target="_blank" style="color: #2563eb; font-weight: bold;">Join Google Meet Session</a> (${meetUrl})<br/>
       <strong>Student Email:</strong> ${booking.studentEmail}<br/>
       <strong>College:</strong> ${booking.collegeName} (${booking.universityName})
       <br/><br/>

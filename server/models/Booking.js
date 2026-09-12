@@ -37,7 +37,8 @@ const bookingSchema = new mongoose.Schema({
   confirmationToken: { type: String, required: true, unique: true },
   tokenExpiresAt: { type: Date, required: true },
   googleCalendarEventId: { type: String, default: null },
-  meetLink: { type: String, default: null }
+  meetLink: { type: String, default: null },
+  meetUrl: { type: String, default: null }
 }, { timestamps: true });
 
 // Compound Index to rapidly block double-booking attempts
@@ -65,7 +66,8 @@ class InMemoryBookingDocument {
     this.confirmationToken = data.confirmationToken;
     this.tokenExpiresAt = data.tokenExpiresAt instanceof Date ? data.tokenExpiresAt : new Date(data.tokenExpiresAt);
     this.googleCalendarEventId = data.googleCalendarEventId || null;
-    this.meetLink = data.meetLink || null;
+    this.meetLink = data.meetLink || data.meetUrl || null;
+    this.meetUrl = data.meetUrl || data.meetLink || null;
     this.createdAt = data.createdAt || new Date();
     this.updatedAt = data.updatedAt || new Date();
   }
