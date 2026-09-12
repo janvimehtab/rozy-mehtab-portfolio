@@ -132,10 +132,7 @@ class GoogleCalendarService {
           dateTime: new Date(bookingData.slotEnd).toISOString(),
           timeZone: 'Asia/Kolkata'
         },
-        attendees: [
-          { email: bookingData.studentEmail, displayName: bookingData.studentName },
-          { email: hostEmail, displayName: 'Rozy Mehtab' }
-        ],
+        // attendees array removed to fix Google Service Account permission blocks
         conferenceData: {
           createRequest: {
             requestId: `rozy-meet-${bookingData._id || Date.now()}`,

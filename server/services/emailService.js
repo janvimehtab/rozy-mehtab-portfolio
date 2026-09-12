@@ -4,6 +4,13 @@ const ical = require('ical-generator').default;
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder_key_for_simulation');
 
 /**
+ * Resend free-tier sandbox fallback helper:
+ * On free/unverified domains (e.g. onboarding@resend.dev), Resend only permits sending to the account owner's email.
+ * If RESEND_CUSTOM_DOMAIN_VERIFIED is 'true', send directly to the provided email; otherwise fall back to host email.
+ */
+const getRecipient = (email) => process.env.RESEND_CUSTOM_DOMAIN_VERIFIED === 'true' ? email : 'rozymehtab@gmail.com';
+
+/**
  * Async helper function to send email via Resend SDK over HTTPS (Port 443)
  * Default sender ('from'): 'Rozy Mehtab Guidance <onboarding@resend.dev>'
  */
@@ -260,14 +267,20 @@ class EmailService {
     </html>
     `;
 
+    const recipientEmail = getRecipient(booking.studentEmail);
+
+    if (recipientEmail !== booking.studentEmail) {
+      console.log(`ℹ️ [Resend Sandbox Mode] Routing student confirmation from ${booking.studentEmail} to ${recipientEmail} (Set RESEND_CUSTOM_DOMAIN_VERIFIED=true in Render when custom domain is verified)`);
+    }
+
     console.log(`\n================== STUDENT CONFIRMATION ==================`);
-    console.log(`To: ${booking.studentEmail}`);
+    console.log(`To: ${recipientEmail} (Student: ${booking.studentEmail})`);
     console.log(`Subject: Confirmed: Career Guidance Session with Rozy Mehtab`);
     console.log(`Google Meet: ${booking.meetLink}`);
     console.log(`==========================================================\n`);
 
     return await sendEmail({
-      to: booking.studentEmail,
+      to: recipientEmail,
       subject: `Confirmed: Your Guidance Session with Rozy Mehtab 🎓`,
       html,
       attachments: [
@@ -284,6 +297,12 @@ class EmailService {
    */
   async sendStudentDeclination(booking, reason = 'Administrative / Scheduling conflict') {
     const timeFormatted = `${this.formatToIST(booking.slotStart)} IST`;
+    const recipientEmail = getRecipient(booking.studentEmail);
+
+    if (recipientEmail !== booking.studentEmail) {
+      console.log(`ℹ️ [Resend Sandbox Mode] Routing student declination from ${booking.studentEmail} to ${recipientEmail}`);
+    }
+
     const html = `
     <div style="font-family: sans-serif; max-width: 540px; margin: 0 auto; padding: 20px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
       <h3 style="color: #be123c;">Guidance Session Update</h3>
@@ -295,7 +314,7 @@ class EmailService {
     `;
 
     return await sendEmail({
-      to: booking.studentEmail,
+      to: recipientEmail,
       subject: `Update regarding your guidance request with Rozy Mehtab`,
       html
     });
@@ -304,6 +323,8 @@ class EmailService {
 
 const emailService = new EmailService();
 emailService.sendEmail = sendEmail;
+emailService.getRecipient = getRecipient;
 
 module.exports = emailService;
 module.exports.sendEmail = sendEmail;
+module.exports.getRecipient = getRecipient;
