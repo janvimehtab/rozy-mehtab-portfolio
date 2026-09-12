@@ -58,8 +58,11 @@ function validateEnvironment() {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
     console.warn('⚠️ Warning: Google Service Account credentials not provided. Google Calendar & Meet links will run in simulation mode.');
   }
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn('⚠️ Warning: SMTP credentials not provided. Transactional emails will run in preview / console mode.');
+  // 3. Resend Email Service Verification
+  if (process.env.RESEND_API_KEY) {
+    console.log('✉️ Resend Email Service initialized.');
+  } else {
+    console.warn('⚠️ Warning: RESEND_API_KEY not provided. Transactional emails will run in simulated preview mode.');
   }
 }
 

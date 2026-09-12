@@ -251,12 +251,12 @@ exports.createBooking = async (req, res) => {
     const approveUrl = `${serverBaseUrl}/api/bookings/approve?token=${approveToken}`;
     const declineUrl = `${serverBaseUrl}/api/bookings/decline?token=${declineToken}`;
 
-    // NON-BLOCKING ISOLATED EMAIL DISPATCH:
-    // If SMTP fails (bad credentials, port timeout, cloud firewall), the booking remains safely saved in DB
+    // NON-BLOCKING ISOLATED EMAIL DISPATCH (Resend API over HTTPS):
+    // If outbound email fails, the booking remains safely saved in DB
     try {
       await emailService.sendHostNotification(booking, approveUrl, declineUrl);
     } catch (emailErr) {
-      console.warn(`❌ Nodemailer delivery failed for host notification: ${emailErr.message}`);
+      console.warn(`❌ Non-blocking email dispatch warning for host notification: ${emailErr.message}`);
     }
 
     return res.status(201).json({
@@ -332,11 +332,11 @@ exports.approveBooking = async (req, res) => {
     booking.meetLink = meetLink;
     await booking.save();
 
-    // Send confirmation email with attached .ics to student (isolated & non-blocking)
+    // Send confirmation email with attached .ics to student (isolated & non-blocking via Resend API)
     try {
       await emailService.sendStudentConfirmation(booking);
     } catch (emailErr) {
-      console.warn(`❌ Nodemailer delivery failed for student confirmation: ${emailErr.message}`);
+      console.warn(`❌ Non-blocking email dispatch warning for student confirmation: ${emailErr.message}`);
     }
 
     const successContent = `
@@ -386,11 +386,11 @@ exports.declineBooking = async (req, res) => {
     booking.status = 'DECLINED';
     await booking.save();
 
-    // Notify student politely (isolated & non-blocking)
+    // Notify student politely (isolated & non-blocking via Resend API)
     try {
       await emailService.sendStudentDeclination(booking, 'Administrative scheduling limit reached.');
     } catch (emailErr) {
-      console.warn(`❌ Nodemailer delivery failed for student declination: ${emailErr.message}`);
+      console.warn(`❌ Non-blocking email dispatch warning for student declination: ${emailErr.message}`);
     }
 
     const declineContent = `

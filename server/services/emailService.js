@@ -1,73 +1,50 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const ical = require('ical-generator').default;
 
-function cleanAppPassword(pass) {
-  if (!pass) return '';
-  // Automatically strip whitespace and newlines from Google App Passwords
-  return pass.replace(/\s+/g, '').trim();
+const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder_key_for_simulation');
+
+/**
+ * Async helper function to send email via Resend SDK over HTTPS (Port 443)
+ * Default sender ('from'): 'Rozy Mehtab Guidance <onboarding@resend.dev>'
+ */
+async function sendEmail({ to, subject, html, attachments = [] }) {
+  const fromSender = process.env.EMAIL_FROM || 'Rozy Mehtab Guidance <onboarding@resend.dev>';
+
+  if (!process.env.RESEND_API_KEY) {
+    console.warn(`⚠️ RESEND_API_KEY not configured. Simulated dispatch to ${to}: "${subject}"`);
+    return { success: true, id: `sim_${Date.now()}`, isSimulated: true };
+  }
+
+  try {
+    const payload = {
+      from: fromSender,
+      to: Array.isArray(to) ? to : [to],
+      subject,
+      html
+    };
+
+    if (attachments && attachments.length > 0) {
+      payload.attachments = attachments;
+    }
+
+    const { data, error } = await resend.emails.send(payload);
+
+    if (error) {
+      console.error(`❌ Resend API Error: ${error.message || JSON.stringify(error)}`);
+      return { success: false, error: error.message || error };
+    }
+
+    console.log(`✅ Email sent via Resend API: ${data?.id}`);
+    return { success: true, id: data?.id };
+  } catch (error) {
+    console.error(`❌ Resend API Error: ${error.message}`);
+    return { success: false, error: error.message };
+  }
 }
 
 class EmailService {
   constructor() {
-    this.transporter = null;
-    this.fromEmail = process.env.EMAIL_FROM || '"Rozy Mehtab - Career Guidance" <rozymehtab@gmail.com>';
-    this.initTransporter();
-  }
-
-  async initTransporter() {
-    const smtpUser = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : '';
-    const smtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
-
-    if (smtpUser && smtpPass) {
-      this.transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass
-        },
-        tls: {
-          rejectUnauthorized: false
-        }
-      });
-
-      console.log(`✅ Nodemailer SSL transport configured: smtp.gmail.com:465 (secure: true, user: ${smtpUser})`);
-
-      // Connection Verification Hook on application boot
-      this.transporter.verify((error, success) => {
-        if (error) {
-          console.error('❌ Nodemailer SMTP Connection Verification Failed:');
-          console.error(`   Error Message: ${error.message}`);
-          console.error(`   Target Host: smtp.gmail.com:465 (Secure: true)`);
-          console.error(`   User Account: ${smtpUser}`);
-          console.error('   👉 Tip: Double check your SMTP_USER and 16-character Google App Password in Render.');
-        } else {
-          console.log(`✅ SMTP connection verified successfully on smtp.gmail.com:465. Outbound mail engine is ready.`);
-        }
-      });
-    } else {
-      console.log('ℹ️ SMTP credentials not fully provided. Generating preview ethereal/console logger.');
-      try {
-        const testAccount = await nodemailer.createTestAccount();
-        this.transporter = nodemailer.createTransport({
-          host: 'smtp.ethereal.email',
-          port: 587,
-          secure: false,
-          auth: {
-            user: testAccount.user,
-            pass: testAccount.pass
-          },
-          tls: {
-            rejectUnauthorized: false
-          }
-        });
-        console.log(`✅ Ethereal test mailer ready for mock emails (${testAccount.user})`);
-      } catch (err) {
-        this.transporter = null;
-        console.log('⚠️ Running email service in local terminal preview mode.');
-      }
-    }
+    this.fromEmail = process.env.EMAIL_FROM || 'Rozy Mehtab Guidance <onboarding@resend.dev>';
   }
 
   /**
@@ -192,24 +169,11 @@ class EmailService {
     console.log(`Decline Link: ${declineUrl}`);
     console.log(`=======================================================\n`);
 
-    if (this.transporter) {
-      try {
-        const info = await this.transporter.sendMail({
-          from: this.fromEmail,
-          to: hostEmail,
-          subject: `[Action Required] New Guidance Request from ${booking.studentName} (${booking.purpose})`,
-          html
-        });
-        if (nodemailer.getTestMessageUrl(info)) {
-          console.log(`✉️ Preview Host Email in browser: ${nodemailer.getTestMessageUrl(info)}`);
-        }
-        return { success: true, messageId: info?.messageId };
-      } catch (err) {
-        console.warn(`❌ Nodemailer delivery failed for host notification: ${err.message}`);
-        return { success: false, error: err.message };
-      }
-    }
-    return { success: true, isSimulated: true };
+    return await sendEmail({
+      to: hostEmail,
+      subject: `[Action Required] New Guidance Request from ${booking.studentName} (${booking.purpose})`,
+      html
+    });
   }
 
   /**
@@ -302,31 +266,17 @@ class EmailService {
     console.log(`Google Meet: ${booking.meetLink}`);
     console.log(`==========================================================\n`);
 
-    if (this.transporter) {
-      try {
-        const info = await this.transporter.sendMail({
-          from: this.fromEmail,
-          to: booking.studentEmail,
-          subject: `Confirmed: Your Guidance Session with Rozy Mehtab 🎓`,
-          html,
-          attachments: [
-            {
-              filename: 'invite.ics',
-              content: icsContent,
-              contentType: 'text/calendar; charset=utf-8; method=REQUEST'
-            }
-          ]
-        });
-        if (nodemailer.getTestMessageUrl(info)) {
-          console.log(`✉️ Preview Student Email: ${nodemailer.getTestMessageUrl(info)}`);
+    return await sendEmail({
+      to: booking.studentEmail,
+      subject: `Confirmed: Your Guidance Session with Rozy Mehtab 🎓`,
+      html,
+      attachments: [
+        {
+          filename: 'invite.ics',
+          content: Buffer.from(icsContent)
         }
-        return { success: true, messageId: info?.messageId };
-      } catch (err) {
-        console.warn(`❌ Nodemailer delivery failed for student confirmation: ${err.message}`);
-        return { success: false, error: err.message };
-      }
-    }
-    return { success: true, isSimulated: true };
+      ]
+    });
   }
 
   /**
@@ -344,22 +294,16 @@ class EmailService {
     </div>
     `;
 
-    if (this.transporter) {
-      try {
-        const info = await this.transporter.sendMail({
-          from: this.fromEmail,
-          to: booking.studentEmail,
-          subject: `Update regarding your guidance request with Rozy Mehtab`,
-          html
-        });
-        return { success: true, messageId: info?.messageId };
-      } catch (err) {
-        console.warn(`❌ Nodemailer delivery failed for student declination: ${err.message}`);
-        return { success: false, error: err.message };
-      }
-    }
-    return { success: true, isSimulated: true };
+    return await sendEmail({
+      to: booking.studentEmail,
+      subject: `Update regarding your guidance request with Rozy Mehtab`,
+      html
+    });
   }
 }
 
-module.exports = new EmailService();
+const emailService = new EmailService();
+emailService.sendEmail = sendEmail;
+
+module.exports = emailService;
+module.exports.sendEmail = sendEmail;
